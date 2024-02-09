@@ -1,11 +1,13 @@
-import tensorflow as tf
-from text.symbols import symbols
-
+from text import symbols
+from collections import namedtuple
 
 def create_hparams(hparams_string=None, verbose=False):
     """Create model hyperparameters. Parse nondefault from given string."""
 
-    hparams = tf.contrib.training.HParams(
+    def get_hparams(**kwargs):
+        return namedtuple('GenericDict', kwargs.keys())(**kwargs)
+    
+    hparams = get_hparams(
         ################################
         # Experiment Parameters        #
         ################################
@@ -24,8 +26,8 @@ def create_hparams(hparams_string=None, verbose=False):
         ################################
         # Data Parameters             #
         ################################
-        training_files='filelists/ljs_audiopaths_text_sid_train_filelist.txt',
-        validation_files='filelists/ljs_audiopaths_text_sid_val_filelist.txt',
+        training_files='filelists/newcombine_train_filelist.txt',
+        validation_files='filelists/newcombine_val_filelist.txt',
         text_cleaners=['english_cleaners'],
         p_arpabet=1.0,
         cmudict_path="data/cmu_dictionary",
@@ -41,8 +43,8 @@ def create_hparams(hparams_string=None, verbose=False):
         n_mel_channels=80,
         mel_fmin=0.0,
         mel_fmax=8000.0,
-        f0_min=80,
-        f0_max=880,
+        f0_min=50,
+        f0_max=600,
         harm_thresh=0.25,
 
         ################################
@@ -105,7 +107,7 @@ def create_hparams(hparams_string=None, verbose=False):
         # Optimization Hyperparameters #
         ################################
         use_saved_learning_rate=False,
-        learning_rate=1e-3,
+        learning_rate=5e-4,
         learning_rate_min=1e-5,
         learning_rate_anneal=50000,
         weight_decay=1e-6,

@@ -32,6 +32,7 @@ def init_distributed(hparams, n_gpus, rank, group_name):
     torch.cuda.set_device(rank % torch.cuda.device_count())
 
     # Initialize distributed communication
+    #dist.init_process_group(backend='nccl', init_method='env://', world_size=n_gpus, rank=rank)
     dist.init_process_group(
         backend=hparams.dist_backend, init_method=hparams.dist_url,
         world_size=n_gpus, rank=rank, group_name=group_name)

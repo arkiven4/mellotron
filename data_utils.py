@@ -48,12 +48,12 @@ class TextMelLoader(torch.utils.data.Dataset):
         random.shuffle(self.audiopaths_and_text)
 
     def create_speaker_lookup_table(self, audiopaths_and_text):
-        speaker_ids = np.sort(np.unique([x[2] for x in audiopaths_and_text]))
+        speaker_ids = np.sort(np.unique([int(x[0].split("/")[10]) for x in audiopaths_and_text]))
         d = {int(speaker_ids[i]): i for i in range(len(speaker_ids))}
         return d
 
     def get_f0(self, audio, sampling_rate=22050, frame_length=1024,
-               hop_length=256, f0_min=100, f0_max=300, harm_thresh=0.1):
+               hop_length=256, f0_min=50, f0_max=600, harm_thresh=0.1):
         f0, harmonic_rates, argmins, times = compute_yin(
             audio, sampling_rate, frame_length, hop_length, f0_min, f0_max,
             harm_thresh)
@@ -64,10 +64,10 @@ class TextMelLoader(torch.utils.data.Dataset):
         return f0
 
     def get_data(self, audiopath_and_text):
-        audiopath, text, speaker = audiopath_and_text
+        audiopath, lang ,text = audiopath_and_text
         text = self.get_text(text)
         mel, f0 = self.get_mel_and_f0(audiopath)
-        speaker_id = self.get_speaker_id(speaker)
+        speaker_id = self.get_speaker_id(int(audiopath.split("/")[10]))
         return (text, mel, speaker_id, f0)
 
     def get_speaker_id(self, speaker_id):
