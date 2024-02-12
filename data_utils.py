@@ -44,6 +44,11 @@ class TextMelLoader(torch.utils.data.Dataset):
             self.speaker_ids = self.create_speaker_lookup_table(
                 self.audiopaths_and_text)
 
+        self.spk_embeds_path = hparams.spk_embeds_path
+        self.emo_embeds_path = hparams.emo_embeds_path
+        self.f0_embeds_path = hparams.f0_embeds_path
+        self.database_name_index = hparams.database_name_index
+
         random.seed(1234)
         random.shuffle(self.audiopaths_and_text)
 
@@ -52,8 +57,7 @@ class TextMelLoader(torch.utils.data.Dataset):
         d = {int(speaker_ids[i]): i for i in range(len(speaker_ids))}
         return d
 
-    def get_f0(self, audio, sampling_rate=22050, frame_length=1024,
-               hop_length=256, f0_min=50, f0_max=600, harm_thresh=0.1):
+    def get_f0(self, audio, sampling_rate=22050, frame_length=1024, hop_length=256, f0_min=50, f0_max=600, harm_thresh=0.1):
         f0, harmonic_rates, argmins, times = compute_yin(
             audio, sampling_rate, frame_length, hop_length, f0_min, f0_max,
             harm_thresh)
@@ -64,11 +68,20 @@ class TextMelLoader(torch.utils.data.Dataset):
         return f0
 
     def get_data(self, audiopath_and_text):
-        audiopath, lang ,text = audiopath_and_text
+        audiopath, lid ,text = audiopath_and_text
+        filename = audiopath.split("/")[-1].split(".")[0]
+        database_name = audiopath.split("/")[self.database_name_index]
+
         text = self.get_text(text)
         mel, f0 = self.get_mel_and_f0(audiopath)
-        speaker_id = self.get_speaker_id(int(audiopath.split("/")[10]))
-        return (text, mel, speaker_id, f0)
+
+        spk_emb = torch.Tensor(np.load(f"{self.spk_embeds_path.replace('dataset_name', database_name)}/{filename}.npy"))
+        # f0 = np.load(f"{self.f0_embeds_path.replace('dataset_name', database_name)}/{filename}.npy")
+        # f0 = torch.from_numpy(f0)[None]
+        # f0 = f0[:, :mel.size(1)]
+        lid = self.get_lid(lid)
+
+        return (text, mel, spk_emb, f0, lid)
 
     def get_speaker_id(self, speaker_id):
         return torch.IntTensor([self.speaker_ids[int(speaker_id)]])
@@ -96,6 +109,10 @@ class TextMelLoader(torch.utils.data.Dataset):
             text_to_sequence(text, self.text_cleaners, self.cmudict, self.p_arpabet))
 
         return text_norm
+    
+    def get_lid(self, lid):
+        lid = torch.IntTensor([int(lid)])
+        return lid
 
     def __getitem__(self, index):
         return self.get_data(self.audiopaths_and_text[index])
@@ -141,20 +158,27 @@ class TextMelCollate():
         gate_padded = torch.FloatTensor(len(batch), max_target_len)
         gate_padded.zero_()
         output_lengths = torch.LongTensor(len(batch))
-        speaker_ids = torch.LongTensor(len(batch))
+        #speaker_ids = torch.LongTensor(len(batch))
+        spk_embeds = torch.FloatTensor(len(batch), 512)
+
         f0_padded = torch.FloatTensor(len(batch), 1, max_target_len)
         f0_padded.zero_()
+
+        lid = torch.LongTensor(len(batch))
 
         for i in range(len(ids_sorted_decreasing)):
             mel = batch[ids_sorted_decreasing[i]][1]
             mel_padded[i, :, :mel.size(1)] = mel
             gate_padded[i, mel.size(1)-1:] = 1
             output_lengths[i] = mel.size(1)
-            speaker_ids[i] = batch[ids_sorted_decreasing[i]][2]
+            spk_embeds[i, :] = batch[ids_sorted_decreasing[i]][2]
+
             f0 = batch[ids_sorted_decreasing[i]][3]
             f0_padded[i, :, :f0.size(1)] = f0
 
+            lid[i] = batch[ids_sorted_decreasing[i]][4]
+
         model_inputs = (text_padded, input_lengths, mel_padded, gate_padded,
-                        output_lengths, speaker_ids, f0_padded)
+                        output_lengths, spk_embeds, f0_padded, lid)
 
         return model_inputs

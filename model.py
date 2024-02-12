@@ -574,10 +574,14 @@ class Tacotron2(nn.Module):
             self.gst = GST(hparams)
         self.speaker_embedding = nn.Embedding(
             hparams.n_speakers, hparams.speaker_embedding_dim)
+        
+        self.emb_g = LinearNorm(512, hparams.speaker_embedding_dim)
+        self.emb_l = nn.Embedding(hparams.n_lang, 4)
+        torch.nn.init.xavier_uniform_(self.emb_l.weight)
 
     def parse_batch(self, batch):
         text_padded, input_lengths, mel_padded, gate_padded, \
-            output_lengths, speaker_ids, f0_padded = batch
+            output_lengths, speaker_ids, f0_padded, lid = batch
         text_padded = to_gpu(text_padded).long()
         input_lengths = to_gpu(input_lengths).long()
         max_len = torch.max(input_lengths.data).item()
@@ -586,8 +590,10 @@ class Tacotron2(nn.Module):
         output_lengths = to_gpu(output_lengths).long()
         speaker_ids = to_gpu(speaker_ids.data).long()
         f0_padded = to_gpu(f0_padded).float()
+        lid = to_gpu(lid).long()
+
         return ((text_padded, input_lengths, mel_padded, max_len,
-                 output_lengths, speaker_ids, f0_padded),
+                 output_lengths, speaker_ids, f0_padded, lid),
                 (mel_padded, gate_padded))
 
     def parse_output(self, outputs, output_lengths=None):
@@ -604,18 +610,20 @@ class Tacotron2(nn.Module):
 
     def forward(self, inputs):
         inputs, input_lengths, targets, max_len, \
-            output_lengths, speaker_ids, f0s = inputs
+            output_lengths, speaker_embeds, f0s, lids = inputs
         input_lengths, output_lengths = input_lengths.data, output_lengths.data
 
         embedded_inputs = self.embedding(inputs).transpose(1, 2)
         embedded_text = self.encoder(embedded_inputs, input_lengths)
-        embedded_speakers = self.speaker_embedding(speaker_ids)[:, None]
+        embedded_speakers = self.emb_g(speaker_embeds)[:, None]
+        embedded_langs = self.emb_l(lids)[:, None]
         embedded_gst = self.gst(targets, output_lengths)
         embedded_gst = embedded_gst.repeat(1, embedded_text.size(1), 1)
         embedded_speakers = embedded_speakers.repeat(1, embedded_text.size(1), 1)
+        embedded_langs = embedded_langs.repeat(1, embedded_text.size(1), 1)
 
         encoder_outputs = torch.cat(
-            (embedded_text, embedded_gst, embedded_speakers), dim=2)
+            (embedded_text, embedded_langs, embedded_gst, embedded_speakers), dim=2)
 
         mel_outputs, gate_outputs, alignments = self.decoder(
             encoder_outputs, targets, memory_lengths=input_lengths, f0s=f0s)
@@ -628,10 +636,12 @@ class Tacotron2(nn.Module):
             output_lengths)
 
     def inference(self, inputs):
-        text, style_input, speaker_ids, f0s = inputs
+        text, style_input, speaker_embeds, f0s, lids = inputs
         embedded_inputs = self.embedding(text).transpose(1, 2)
         embedded_text = self.encoder.inference(embedded_inputs)
-        embedded_speakers = self.speaker_embedding(speaker_ids)[:, None]
+        #embedded_speakers = self.speaker_embedding(speaker_ids)[:, None]
+        embedded_speakers = self.emb_g(speaker_embeds)[:, None]
+        embedded_langs = self.emb_l(lids)[:, None]
         if hasattr(self, 'gst'):
             if isinstance(style_input, int):
                 query = torch.zeros(1, 1, self.gst.encoder.ref_enc_gru_size).cuda()
@@ -642,13 +652,14 @@ class Tacotron2(nn.Module):
                 embedded_gst = self.gst(style_input)
 
         embedded_speakers = embedded_speakers.repeat(1, embedded_text.size(1), 1)
+        embedded_langs = embedded_langs.repeat(1, embedded_text.size(1), 1)
         if hasattr(self, 'gst'):
             embedded_gst = embedded_gst.repeat(1, embedded_text.size(1), 1)
             encoder_outputs = torch.cat(
-                (embedded_text, embedded_gst, embedded_speakers), dim=2)
+                (embedded_text, embedded_langs, embedded_gst, embedded_speakers), dim=2)
         else:
             encoder_outputs = torch.cat(
-                (embedded_text, embedded_speakers), dim=2)
+                (embedded_text, embedded_langs, embedded_speakers), dim=2)
 
         mel_outputs, gate_outputs, alignments = self.decoder.inference(
             encoder_outputs, f0s)

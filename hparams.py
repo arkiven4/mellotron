@@ -31,6 +31,11 @@ def create_hparams(hparams_string=None, verbose=False):
         text_cleaners=['english_cleaners'],
         p_arpabet=1.0,
         cmudict_path="data/cmu_dictionary",
+        n_lang=10,
+        spk_embeds_path="/run/media/viblab/Markov2/Pras/Thesis/Database/dataset_name/spk_embeds/",
+        emo_embeds_path="/run/media/viblab/Markov2/Pras/Thesis/Database/dataset_name/emo_embeds/",
+        f0_embeds_path="/run/media/viblab/Markov2/Pras/Thesis/Database/dataset_name/f0/",
+        database_name_index=8,
 
         ################################
         # Audio Parameters             #
@@ -88,7 +93,7 @@ def create_hparams(hparams_string=None, verbose=False):
 
         # Speaker embedding
         n_speakers=123,
-        speaker_embedding_dim=128,
+        speaker_embedding_dim=124,
 
         # Reference encoder
         with_gst=True,
