@@ -1,2 +1,2 @@
 source /run/media/viblab/Markov2/Pras/Thesis/TryMyOwn/glow-tts/.env/bin/activate
-python train.py --output_directory=outdir --log_directory=logdir -c mellotron_libritts.pt --warm_start --rank 1
+python train.py --output_directory=outdir --log_directory=logdir -c outdir/checkpoint_8500 --warm_start --rank 1

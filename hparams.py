@@ -28,13 +28,13 @@ def create_hparams(hparams_string=None, verbose=False):
         ################################
         training_files='filelists/newcombine_train_filelist.txt',
         validation_files='filelists/newcombine_val_filelist.txt',
-        text_cleaners=['english_cleaners'],
+        text_cleaners=['basic_cleaners'],
         p_arpabet=1.0,
-        cmudict_path="data/cmu_dictionary",
+        cmudict_path="",
         n_lang=10,
         spk_embeds_path="/run/media/viblab/Markov2/Pras/Thesis/Database/dataset_name/spk_embeds/",
         emo_embeds_path="/run/media/viblab/Markov2/Pras/Thesis/Database/dataset_name/emo_embeds/",
-        f0_embeds_path="/run/media/viblab/Markov2/Pras/Thesis/Database/dataset_name/f0/",
+        f0_embeds_path="/run/media/viblab/Markov2/Pras/Thesis/Database/dataset_name/f0_straight/",
         database_name_index=8,
 
         ################################
@@ -93,7 +93,7 @@ def create_hparams(hparams_string=None, verbose=False):
 
         # Speaker embedding
         n_speakers=123,
-        speaker_embedding_dim=124,
+        speaker_embedding_dim=128,
 
         # Reference encoder
         with_gst=True,
@@ -117,7 +117,7 @@ def create_hparams(hparams_string=None, verbose=False):
         learning_rate_anneal=50000,
         weight_decay=1e-6,
         grad_clip_thresh=1.0,
-        batch_size=32,
+        batch_size=16,
         mask_padding=True,  # set model's padded outputs to padded values
 
     )

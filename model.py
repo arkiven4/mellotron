@@ -228,7 +228,7 @@ class Decoder(nn.Module):
         super(Decoder, self).__init__()
         self.n_mel_channels = hparams.n_mel_channels
         self.n_frames_per_step = hparams.n_frames_per_step
-        self.encoder_embedding_dim = hparams.encoder_embedding_dim + hparams.token_embedding_size + hparams.speaker_embedding_dim
+        self.encoder_embedding_dim = hparams.encoder_embedding_dim + 4 + hparams.token_embedding_size + hparams.speaker_embedding_dim
         self.attention_rnn_dim = hparams.attention_rnn_dim
         self.decoder_rnn_dim = hparams.decoder_rnn_dim
         self.prenet_dim = hparams.prenet_dim
@@ -588,7 +588,7 @@ class Tacotron2(nn.Module):
         mel_padded = to_gpu(mel_padded).float()
         gate_padded = to_gpu(gate_padded).float()
         output_lengths = to_gpu(output_lengths).long()
-        speaker_ids = to_gpu(speaker_ids.data).long()
+        speaker_ids = to_gpu(speaker_ids.data).float()
         f0_padded = to_gpu(f0_padded).float()
         lid = to_gpu(lid).long()
 
@@ -624,6 +624,7 @@ class Tacotron2(nn.Module):
 
         encoder_outputs = torch.cat(
             (embedded_text, embedded_langs, embedded_gst, embedded_speakers), dim=2)
+        
 
         mel_outputs, gate_outputs, alignments = self.decoder(
             encoder_outputs, targets, memory_lengths=input_lengths, f0s=f0s)
@@ -671,10 +672,12 @@ class Tacotron2(nn.Module):
             [mel_outputs, mel_outputs_postnet, gate_outputs, alignments])
 
     def inference_noattention(self, inputs):
-        text, style_input, speaker_ids, f0s, attention_map = inputs
+        text, style_input, speaker_embeds, f0s, lids, attention_map = inputs
         embedded_inputs = self.embedding(text).transpose(1, 2)
         embedded_text = self.encoder.inference(embedded_inputs)
-        embedded_speakers = self.speaker_embedding(speaker_ids)[:, None]
+        #embedded_speakers = self.speaker_embedding(speaker_ids)[:, None]
+        embedded_speakers = self.emb_g(speaker_embeds)[:, None]
+        embedded_langs = self.emb_l(lids)[:, None]
         if hasattr(self, 'gst'):
             if isinstance(style_input, int):
                 query = torch.zeros(1, 1, self.gst.encoder.ref_enc_gru_size).cuda()
@@ -685,13 +688,14 @@ class Tacotron2(nn.Module):
                 embedded_gst = self.gst(style_input)
 
         embedded_speakers = embedded_speakers.repeat(1, embedded_text.size(1), 1)
+        embedded_langs = embedded_langs.repeat(1, embedded_text.size(1), 1)
         if hasattr(self, 'gst'):
             embedded_gst = embedded_gst.repeat(1, embedded_text.size(1), 1)
             encoder_outputs = torch.cat(
-                (embedded_text, embedded_gst, embedded_speakers), dim=2)
+                (embedded_text, embedded_langs, embedded_gst, embedded_speakers), dim=2)
         else:
             encoder_outputs = torch.cat(
-                (embedded_text, embedded_speakers), dim=2)
+                (embedded_text, embedded_langs, embedded_speakers), dim=2)
 
         mel_outputs, gate_outputs, alignments = self.decoder.inference_noattention(
             encoder_outputs, f0s, attention_map)

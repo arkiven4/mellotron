@@ -36,13 +36,13 @@ class TextMelLoader(torch.utils.data.Dataset):
         self.p_arpabet = hparams.p_arpabet
 
         self.cmudict = None
-        if hparams.cmudict_path is not None:
-            self.cmudict = cmudict.CMUDict(hparams.cmudict_path)
+        # if hparams.cmudict_path is not None:
+        #     self.cmudict = cmudict.CMUDict(hparams.cmudict_path)
 
         self.speaker_ids = speaker_ids
-        if speaker_ids is None:
-            self.speaker_ids = self.create_speaker_lookup_table(
-                self.audiopaths_and_text)
+        # if speaker_ids is None:
+        #     self.speaker_ids = self.create_speaker_lookup_table(
+        #         self.audiopaths_and_text)
 
         self.spk_embeds_path = hparams.spk_embeds_path
         self.emo_embeds_path = hparams.emo_embeds_path
@@ -52,10 +52,10 @@ class TextMelLoader(torch.utils.data.Dataset):
         random.seed(1234)
         random.shuffle(self.audiopaths_and_text)
 
-    def create_speaker_lookup_table(self, audiopaths_and_text):
-        speaker_ids = np.sort(np.unique([int(x[0].split("/")[10]) for x in audiopaths_and_text]))
-        d = {int(speaker_ids[i]): i for i in range(len(speaker_ids))}
-        return d
+    # def create_speaker_lookup_table(self, audiopaths_and_text):
+    #     speaker_ids = np.sort(np.unique([int(x[0].split("/")[10]) for x in audiopaths_and_text]))
+    #     d = {int(speaker_ids[i]): i for i in range(len(speaker_ids))}
+    #     return d
 
     def get_f0(self, audio, sampling_rate=22050, frame_length=1024, hop_length=256, f0_min=50, f0_max=600, harm_thresh=0.1):
         f0, harmonic_rates, argmins, times = compute_yin(
@@ -73,12 +73,12 @@ class TextMelLoader(torch.utils.data.Dataset):
         database_name = audiopath.split("/")[self.database_name_index]
 
         text = self.get_text(text)
-        mel, f0 = self.get_mel_and_f0(audiopath)
+        mel = self.get_mel_and_f0(audiopath)
 
         spk_emb = torch.Tensor(np.load(f"{self.spk_embeds_path.replace('dataset_name', database_name)}/{filename}.npy"))
-        # f0 = np.load(f"{self.f0_embeds_path.replace('dataset_name', database_name)}/{filename}.npy")
-        # f0 = torch.from_numpy(f0)[None]
-        # f0 = f0[:, :mel.size(1)]
+        f0 = np.load(f"{self.f0_embeds_path.replace('dataset_name', database_name)}/{filename}.npy")
+        f0 = torch.from_numpy(f0)[None]
+        f0 = f0[:, :mel.size(1)]
         lid = self.get_lid(lid)
 
         return (text, mel, spk_emb, f0, lid)
@@ -96,17 +96,17 @@ class TextMelLoader(torch.utils.data.Dataset):
         melspec = self.stft.mel_spectrogram(audio_norm)
         melspec = torch.squeeze(melspec, 0)
 
-        f0 = self.get_f0(audio.cpu().numpy(), self.sampling_rate,
-                         self.filter_length, self.hop_length, self.f0_min,
-                         self.f0_max, self.harm_thresh)
-        f0 = torch.from_numpy(f0)[None]
-        f0 = f0[:, :melspec.size(1)]
+        # f0 = self.get_f0(audio.cpu().numpy(), self.sampling_rate,
+        #                  self.filter_length, self.hop_length, self.f0_min,
+        #                  self.f0_max, self.harm_thresh)
+        # f0 = torch.from_numpy(f0)[None]
+        # f0 = f0[:, :melspec.size(1)]
 
-        return melspec, f0
+        return melspec
 
     def get_text(self, text):
         text_norm = torch.IntTensor(
-            text_to_sequence(text, self.text_cleaners, self.cmudict, self.p_arpabet))
+            text_to_sequence(text, self.text_cleaners))
 
         return text_norm
     
